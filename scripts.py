@@ -55,8 +55,8 @@ def create_db(): # создание базы
     print("База данных создана")
 
 def markdown(text, full=False):  # экранирование только для телеграма
-    if full == True: special_characters = r'*|~[]()>#+-=|{}._!'
-    else: special_characters = r'[]()>#+-=|{}._!'
+    if full == True: special_characters = r'*|~[]()>#+-=|{}._!\\'
+    else: special_characters = r'>#+-=|{}._!'
     escaped_text = ''
     for char in text:
         if char in special_characters:
@@ -110,6 +110,15 @@ def save_podcast(podcast, user_id):
         text = f'Вы уже сохранили подкаст *{podcast_title}*!'
     text = markdown(text)    
     return menu_id, text
+
+def delete_podcast(podcast_id, user_id):
+    podcasts = SQL_request("SELECT podcasts FROM users WHERE id = ?", (user_id,))
+    podcasts = json.loads(podcasts[0])
+    podcast_name = next((name for name, id_ in podcasts.items() if id_ == podcast_id), None)
+    del podcasts[podcast_name]
+    updated_podcasts = json.dumps(podcasts)
+    SQL_request("UPDATE users SET podcasts = ? WHERE id = ?", (updated_podcasts, user_id))
+    return f"{podcast_name} успешно удалён из избранного"
 
 if not os.path.exists(DB_PATH):
     create_db()

@@ -1,4 +1,5 @@
 import telebot
+from telebot import types
 
 import config
 import open_menu
@@ -52,6 +53,18 @@ def callback_query(call):  # работа с вызовами inline кнопо�
         menu_name = (call.data).split(":")[1]
         menu_function = getattr(open_menu, menu_name)
         text, keyboard = menu_function(call)
+        bot.edit_message_text(chat_id=user_id, message_id=menu_id, text=text, reply_markup=keyboard, parse_mode="MarkdownV2")
+
+    elif (call.data).split(":")[0] == "open_podcast":
+        podcast_id = (call.data).split(":")[1]
+        text, keyboard = open_menu.open_podcast(podcast_id)
+        bot.edit_message_text(chat_id=user_id, message_id=menu_id, text=text, reply_markup=keyboard, parse_mode="MarkdownV2")
+
+    elif (call.data).split(":")[0] == "delete":
+        podcast_id = (call.data).split(":")[1]
+        text = delete_podcast(podcast_id, user_id)
+        bot.answer_callback_query(call.id, text)
+        text, keyboard = open_menu.save(call)
         bot.edit_message_text(chat_id=user_id, message_id=menu_id, text=text, reply_markup=keyboard, parse_mode="MarkdownV2")
 
     else:
