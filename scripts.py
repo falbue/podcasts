@@ -44,7 +44,7 @@ def create_db(): # создание базы
         username TEXT,
         message INTEGER,
         time_registration DATE,
-        podcasts INTEGER
+        podcasts TEXT
     )''')
     
     connect.commit()

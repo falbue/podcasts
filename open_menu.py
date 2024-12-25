@@ -23,9 +23,7 @@ def help(call):
 def save(call):
     user_id = call.message.chat.id
     podcasts = SQL_request("SELECT podcasts FROM users WHERE id = ?", (user_id,))
-    podcasts = json.loads(podcasts[0])
-    print(type(podcasts), podcasts)
-    if not podcasts:
+    if not podcasts[0]:
         text = "У Вас нет сохранённых подкастов!"
     else:
         text = "Сохранение подкастов в разработке!"
@@ -40,3 +38,9 @@ def random(call):
     btn_return = InlineKeyboardButton("< Назад", callback_data='return:main')
     keyboard.add(btn_return)
     return text, keyboard
+
+def save_podcast():
+    keyboard = InlineKeyboardMarkup(row_width=2)
+    btn_return = InlineKeyboardButton("< Назад", callback_data='return:main')
+    keyboard.add(btn_return)
+    return keyboard
