@@ -94,5 +94,4 @@ def start_polling():
             print(f"Перезапуск...")
 
 if __name__ == "__main__":
-    # start_polling()
-    bot.polling(none_stop=True, timeout=60)
+    start_polling()
