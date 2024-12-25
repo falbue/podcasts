@@ -19,7 +19,7 @@ bot.set_my_commands(commands)
 @bot.message_handler(commands=['start'])  # обработка команды start
 def start(message):
     menu_id = registration(message)
-    text, keyboard = create_keyboard.main()
+    text, keyboard = open_menu.main(message)
     bot.send_message(message.chat.id, text, reply_markup=keyboard)
     bot.delete_message(message.chat.id, message.id)
     if menu_id:
@@ -30,11 +30,11 @@ def start(message):
 
 @bot.message_handler(commands=['help'])  # обработка команды help
 def help(message):
+    bot.delete_message(message.chat.id, message.message_id)
     user_id = message.chat.id
     menu_id = SQL_request("SELECT message FROM users WHERE id = ?", (user_id,))
-    text, keyboard = open_menu.help()
+    text, keyboard = open_menu.help(message)
     bot.edit_message_text(chat_id=user_id, message_id=menu_id, text=text, reply_markup=keyboard)
-    bot.delete_message(message.chat.id, message.message_id)
 
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -51,12 +51,12 @@ def callback_query(call):  # работа с вызовами inline кнопо�
     if (call.data).split(":")[0] == "return":
         menu_name = (call.data).split(":")[1]
         menu_function = getattr(open_menu, menu_name)
-        text, keyboard = menu_function()
+        text, keyboard = menu_function(call)
         bot.edit_message_text(chat_id=user_id, message_id=menu_id, text=text, reply_markup=keyboard)
 
     else:
         menu_function = getattr(open_menu, call.data)
-        text, keyboard = menu_function()
+        text, keyboard = menu_function(call)
         bot.edit_message_text(chat_id=user_id, message_id=menu_id, text=text, reply_markup=keyboard)
 
 
