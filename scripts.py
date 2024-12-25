@@ -4,6 +4,8 @@ import pytz
 import sqlite3
 import os
 import random
+from bs4 import BeautifulSoup
+import requests
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))  # текущая директория скрипта
 DB_HUB = os.path.join(os.path.dirname(os.path.dirname(SCRIPT_DIR)), 'db_hub')
@@ -36,6 +38,7 @@ def SQL_request(request, params=(), all_data=None):  # Выполнение SQL-
         connect.close()
 
 
+
 def create_db(): # создание базы
     connect = sqlite3.connect(DB_PATH)
     cursor = connect.cursor()
@@ -44,13 +47,23 @@ def create_db(): # создание базы
         username TEXT,
         message INTEGER,
         time_registration DATE,
-        podcasts TEXT
+        podcasts JSON DEFAULT '{}'
     )''')
     
     connect.commit()
     connect.close()
     print("База данных создана")
 
+def markdown(text, full=False):  # экранирование только для телеграма
+    if full == True: special_characters = r'*|~[]()>#+-=|{}._!'
+    else: special_characters = r'[]()>#+-=|{}._!'
+    escaped_text = ''
+    for char in text:
+        if char in special_characters:
+            escaped_text += f'\\{char}'
+        else:
+            escaped_text += char
+    return escaped_text
 
 
 def registration(message):
@@ -68,6 +81,35 @@ def registration(message):
         SQL_request("""UPDATE users SET message = ? WHERE id = ?""", (message_id+1, user_id))  # добавление telegram_id нового меню
         return menu_id
 
-# ПРОВЕРКА СОЗДАНИЯ БД
+def save_podcast(podcast, user_id):
+    podcast_id = podcast[len("https://podcast.ru/"):].strip()
+    current_podcasts = SQL_request("SELECT podcasts FROM users WHERE id = ?", (user_id,))
+    menu_id = SQL_request("SELECT message FROM users WHERE id = ?", (user_id,))
+    try:
+        response = requests.get(podcast)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        podcast_title = soup.find('h1').get_text(strip=True)
+        podcast_title = markdown(podcast_title, True)
+    except Exception as e:
+        return menu_id, f"Подкаст не найден \:\(\nУбедитесь, что ссылка правильная"
+
+    podcast_data = json.dumps({podcast_title: podcast_id}, ensure_ascii=False)
+
+    if current_podcasts:
+        podcasts_list = json.loads(current_podcasts[0]) if current_podcasts[0] else {}
+    else:
+        podcasts_list = {}
+
+    if podcast_id not in podcasts_list.values():
+        podcasts_list[podcast_title] = podcast_id  # Добавляем новую запись
+        updated_podcasts = json.dumps(podcasts_list, ensure_ascii=False)  # Преобразуем обратно в строку
+        SQL_request("UPDATE users SET podcasts = ? WHERE id = ?", (updated_podcasts, user_id))
+        text = f'Подкаст *{podcast_title}* добавлен!'
+    else:
+        text = f'Вы уже сохранили подкаст *{podcast_title}*!'
+    text = markdown(text)    
+    return menu_id, text
+
 if not os.path.exists(DB_PATH):
     create_db()
