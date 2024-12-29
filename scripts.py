@@ -6,6 +6,7 @@ import os
 import random
 from bs4 import BeautifulSoup
 import requests
+import re
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))  # текущая директория скрипта
 DB_HUB = os.path.join(os.path.dirname(os.path.dirname(SCRIPT_DIR)), 'db_hub')
@@ -83,8 +84,12 @@ def registration(message):
 
 def save_podcast(podcast, user_id):
     podcast_id = podcast[len("https://podcast.ru/"):].strip()
+
     current_podcasts = SQL_request("SELECT podcasts FROM users WHERE id = ?", (user_id,))
     menu_id = SQL_request("SELECT message FROM users WHERE id = ?", (user_id,))
+    
+    if not re.match(r'^\d+$', podcast_id):
+        return menu_id, "Неверная ссылка\!\n\nНужно скопировать ссылку на страницу с подкастом\!"
     try:
         response = requests.get(podcast)
         response.raise_for_status()

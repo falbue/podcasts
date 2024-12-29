@@ -76,12 +76,12 @@ def callback_query(call):  # работа с вызовами inline кнопо�
 
 @bot.message_handler(func=lambda message: True)
 def handle_text_message(message):
+    bot.delete_message(message.chat.id, message.message_id)
     if message.text.startswith("https://podcast.ru/"):
         user_id = message.chat.id
         menu_id, text = save_podcast(message.text, user_id)
         keyboard = open_menu.save_podcast()
         bot.edit_message_text(chat_id=user_id, message_id=menu_id, text=text, reply_markup=keyboard, parse_mode="MarkdownV2")
-    bot.delete_message(message.chat.id, message.message_id)
 
 
 
@@ -94,4 +94,5 @@ def start_polling():
             print(f"Перезапуск...")
 
 if __name__ == "__main__":
-    start_polling()
+    # start_polling()
+    bot.polling()
