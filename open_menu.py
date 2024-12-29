@@ -4,12 +4,6 @@ import random
 from scripts import *
 import json
 
-URL = "https://podcast.ru/"
-
-# Загрузка данных из JSON файла
-with open('locale.json', 'r', encoding='utf-8') as file:
-    locale = json.load(file)
-
 def create_buttons(data, prefix=URL, web_app=False):
     buttons = []
     for text, callback in data.items():
@@ -72,7 +66,8 @@ def save_podcast():
     return keyboard
 
 def open_podcast(podcast_id):
-    text = f"[Открыть в бразузере ›]({URL}{podcast_id}/info)"
+    name, author, image = podcast_data(podcast_id)
+    text = f"*Название:* `{name}`\n*Автор:* `{author}`\n\n[O]({image})[ткрыть в браузере ›]({URL}{podcast_id}/info)"
     keyboard = InlineKeyboardMarkup(row_width=2)
     btn_open = types.InlineKeyboardButton(locale["buttons"]["listen"], web_app=types.WebAppInfo(url=f'{URL}{podcast_id}/e'))
     # btn_share = InlineKeyboardButton(text="➦ Поделится", switch_inline_query="") 

@@ -11,8 +11,8 @@ print(VERSION)
 bot = telebot.TeleBot(config.API)
 
 commands = [  # КОМАНДЫ
-telebot.types.BotCommand("start", "Перезапуск"),
-telebot.types.BotCommand("help", "Помощь"),
+telebot.types.BotCommand("start", locale['commands']['start']),
+telebot.types.BotCommand("help", locale['commands']['help']),
 ]
 bot.set_my_commands(commands)
 

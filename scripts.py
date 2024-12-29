@@ -8,11 +8,16 @@ from bs4 import BeautifulSoup
 import requests
 import re
 
+# Загрузка локализации из JSON файла
+with open('locale.json', 'r', encoding='utf-8') as file:
+    locale = json.load(file)
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))  # текущая директория скрипта
 DB_HUB = os.path.join(os.path.dirname(os.path.dirname(SCRIPT_DIR)), 'db_hub')
 DB_HUB = SCRIPT_DIR if not (os.path.exists(DB_HUB) and os.path.isdir(DB_HUB)) else DB_HUB
 DB_NAME = 'podcasts.db'
 DB_PATH = f"{DB_HUB}/{DB_NAME}"
+URL = "https://podcast.ru/"
 
 
 def now_time():  # Получение текущего времени по МСК
@@ -124,6 +129,25 @@ def delete_podcast(podcast_id, user_id):
     updated_podcasts = json.dumps(podcasts)
     SQL_request("UPDATE users SET podcasts = ? WHERE id = ?", (updated_podcasts, user_id))
     return f"{podcast_name} успешно удалён из избранного"
+
+def podcast_data(podcast_id):
+    response = requests.get(f"{URL}/{podcast_id}/info")
+    response.raise_for_status()
+    soup = BeautifulSoup(response.text, 'html.parser')
+    
+    # Получаем название подкаста
+    podcast_title = soup.find('h1').get_text(strip=True)
+    
+    # Получаем имя автора
+    # Убедимся, что находим правильный тег <a> с текстом
+    podcast_author_tag = soup.find('a', string=True)  # Применяем string=True, чтобы найти <a> с текстом
+    podcast_author = podcast_author_tag.get_text(strip=True) if podcast_author_tag else None
+    
+    # Получаем ссылку на изображение
+    podcast_image_tag = soup.find('img', class_='podcast-img')
+    podcast_image_url = podcast_image_tag['src'] if podcast_image_tag else None
+    
+    return podcast_title, podcast_author, podcast_image_url
 
 if not os.path.exists(DB_PATH):
     create_db()
