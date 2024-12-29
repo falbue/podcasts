@@ -5,7 +5,7 @@ import config
 import open_menu
 from scripts import *
 
-VERSION="1.0.0"
+VERSION="1.1.0"
 print(VERSION)
 
 bot = telebot.TeleBot(config.API)
