@@ -6,6 +6,10 @@ import json
 
 URL = "https://podcast.ru/"
 
+# Загрузка данных из JSON файла
+with open('locale.json', 'r', encoding='utf-8') as file:
+    locale = json.load(file)
+
 def create_buttons(data, prefix=URL, web_app=False):
     buttons = []
     for text, callback in data.items():
@@ -21,29 +25,19 @@ def create_buttons(data, prefix=URL, web_app=False):
     return buttons
 
 def main(call):
-    text = """Добро пожаловать в мир подкастов 🎙️
-
-🔎 *Хотите* узнать что-то новое, посмеяться или найти вдохновение? У нас есть подкасты на любой вкус
-
-🔊 *Слушай* в дороге, на прогулке или дома — запускайте любимые выпуски одним нажатием
-
-🌐 *Нашли* что-то крутое? Расскажите друзьям или сохраните в избранное
-
-*Никаких лишних движений* — только вы, ваши наушники и океан историй, знаний и эмоций"""
+    text = locale["bot"]["welcome"]
     keyboard = InlineKeyboardMarkup(row_width=2)
-    btn_save = InlineKeyboardButton("⭐️ Избранное", callback_data='save')
+    btn_save = InlineKeyboardButton(locale["buttons"]["favorites"], callback_data='save')
     # btn_random = InlineKeyboardButton("Случайный", callback_data='random')
     keyboard.add(btn_save)
     text = markdown(text)
     return text, keyboard
 
 def help(call):
-    text = """*Как сохранить подкаст в избранное?*
-
-Пришлите ссылку на подкаст из приложения и бот сам сохранит его в избранном\!
-"""
+    text = locale["bot"]['help']
+    text = markdown(text)
     keyboard = InlineKeyboardMarkup(row_width=2)
-    btn_return = InlineKeyboardButton("⬅️ Назад", callback_data='return:main')
+    btn_return = InlineKeyboardButton(locale["buttons"]["return"], callback_data='return:main')
     keyboard.add(btn_return)
     return text, keyboard
 
@@ -52,11 +46,11 @@ def save(call):
     podcasts = SQL_request("SELECT podcasts FROM users WHERE id = ?", (user_id,))
     podcasts = json.loads(podcasts[0])
     keyboard = InlineKeyboardMarkup(row_width=2)
-    btn_return = InlineKeyboardButton("⬅️ Назад", callback_data='return:main')
+    btn_return = InlineKeyboardButton(locale["buttons"]["return"], callback_data='return:main')
     if not podcasts:
-        text = "У Вас нет сохранённых подкастов\n\nКак добававить в избранное? /help"
+        text = locale['bot']['save']['none']
     else:
-        text = f"*Добавлено подкастов\:* {len(podcasts)}\n\nВыберите подкаст, который хотите послушать:"
+        text = locale['bot']['save']['yes'].format(number_podcasts=len(podcasts))
         buttons = create_buttons(podcasts, "open_podcast")
         keyboard.add(*buttons)
     keyboard.add(btn_return)
@@ -66,23 +60,23 @@ def save(call):
 def random(call):
     text = "Случайные подкасты в разработке!"
     keyboard = InlineKeyboardMarkup(row_width=2)
-    btn_return = InlineKeyboardButton("⬅️ Назад", callback_data='return:main')
+    btn_return = InlineKeyboardButton(locale["buttons"]["return"], callback_data='return:main')
     keyboard.add(btn_return)
     text = markdown(text)
     return text, keyboard
 
 def save_podcast():
     keyboard = InlineKeyboardMarkup(row_width=2)
-    btn_return = InlineKeyboardButton("⬅️ Назад", callback_data='return:main')
+    btn_return = InlineKeyboardButton(locale["buttons"]["return"], callback_data='return:main')
     keyboard.add(btn_return)
     return keyboard
 
 def open_podcast(podcast_id):
     text = f"[Открыть в бразузере ›]({URL}{podcast_id}/info)"
     keyboard = InlineKeyboardMarkup(row_width=2)
-    btn_open = types.InlineKeyboardButton("🎧 Слушать", web_app=types.WebAppInfo(url=f'{URL}{podcast_id}/e'))
+    btn_open = types.InlineKeyboardButton(locale["buttons"]["listen"], web_app=types.WebAppInfo(url=f'{URL}{podcast_id}/e'))
     # btn_share = InlineKeyboardButton(text="➦ Поделится", switch_inline_query="") 
-    btn_delete = InlineKeyboardButton("🚫 Удалить", callback_data=f'delete:{podcast_id}')
-    btn_return = InlineKeyboardButton("⬅️ Назад", callback_data='return:save')
+    btn_delete = InlineKeyboardButton(locale["buttons"]["delete"], callback_data=f'delete:{podcast_id}')
+    btn_return = InlineKeyboardButton(locale["buttons"]["return"], callback_data='return:save')
     keyboard.add(btn_open,btn_delete, btn_return)
     return text, keyboard
