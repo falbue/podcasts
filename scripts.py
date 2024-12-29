@@ -90,7 +90,6 @@ def save_podcast(podcast, user_id):
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
         podcast_title = soup.find('h1').get_text(strip=True)
-        podcast_title = markdown(podcast_title, True)
     except Exception as e:
         return menu_id, f"Подкаст не найден \:\(\nУбедитесь, что ссылка правильная"
 
@@ -105,6 +104,7 @@ def save_podcast(podcast, user_id):
         podcasts_list[podcast_title] = podcast_id  # Добавляем новую запись
         updated_podcasts = json.dumps(podcasts_list, ensure_ascii=False)  # Преобразуем обратно в строку
         SQL_request("UPDATE users SET podcasts = ? WHERE id = ?", (updated_podcasts, user_id))
+        podcast_title = markdown(podcast_title, True)
         text = f'Подкаст *{podcast_title}* добавлен!'
     else:
         text = f'Вы уже сохранили подкаст *{podcast_title}*!'
