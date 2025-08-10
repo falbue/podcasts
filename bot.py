@@ -72,14 +72,17 @@ def save_podcast(tta_data):
         return {"notification_text": f"Критическая ошибка: {str(e)}"}
 
 def my_podcasts(tta_data):
-    row_podcasts = SQL_request("SELECT podcasts FROM TTA WHERE telegram_id = ?", (tta_data["telegram_id"],))["podcasts"]
-    row_podcasts = json.loads(row_podcasts)
     keyboard = {}
-    if not row_podcasts:
+    try:
+        row_podcasts = SQL_request("SELECT podcasts FROM TTA WHERE telegram_id = ?", (tta_data["telegram_id"],))["podcasts"]
+        row_podcasts = json.loads(row_podcasts)
+        if not row_podcasts:
+            return keyboard
+        for podcast in row_podcasts:
+            keyboard[f"podcast|{podcast['id']}"] = podcast["title"]
         return keyboard
-    for podcast in row_podcasts:
-        keyboard[f"podcast|{podcast['id']}"] = podcast["title"]
-    return keyboard
+    except:
+        return keyboard
 
 def podcast_data(tta_data):
     try:
