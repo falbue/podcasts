@@ -1,98 +1,125 @@
-import telebot
-from telebot import types
+import requests
+from bs4 import BeautifulSoup
+import json
+from TelegramTextApp.database import SQL_request
+import TelegramTextApp
+import os
+from dotenv import load_dotenv
+import re
 
-import config
-import open_menu
-from scripts import *
-
-VERSION="1.1.0"
-print(VERSION)
-
-bot = telebot.TeleBot(config.API)
-
-commands = [  # КОМАНДЫ
-telebot.types.BotCommand("start", locale['commands']['start']),
-telebot.types.BotCommand("help", locale['commands']['help']),
-]
-bot.set_my_commands(commands)
-
-
-@bot.message_handler(commands=['start'])  # обработка команды start
-def start(message):
-    menu_id = registration(message)
-    text, keyboard = open_menu.main(message)
-    bot.send_message(message.chat.id, text, reply_markup=keyboard, parse_mode="MarkdownV2")
-    bot.delete_message(message.chat.id, message.id)
-    if menu_id:
-        try:
-            bot.delete_message(message.chat.id, menu_id)
-        except:
-            pass
-
-@bot.message_handler(commands=['help'])  # обработка команды help
-def help(message):
-    bot.delete_message(message.chat.id, message.message_id)
-    user_id = message.chat.id
-    menu_id = SQL_request("SELECT message FROM users WHERE id = ?", (user_id,))
-    text, keyboard = open_menu.help(message)
-    bot.edit_message_text(chat_id=user_id, message_id=menu_id, text=text, reply_markup=keyboard, parse_mode="MarkdownV2")
-
-
-@bot.callback_query_handler(func=lambda call: True)
-def callback_query(call):  # работа с вызовами inline кнопок
-    user_id = call.message.chat.id
-    menu_id = call.message.message_id
-    data = call.data
-    user = SQL_request("SELECT * FROM users WHERE id = ?", (int(user_id),))
-    SQL_request("UPDATE users SET message = ? WHERE id = ?", (menu_id, user_id))
-    bot.clear_step_handler_by_chat_id(chat_id=user_id)
-    print(f"{user_id}: {call.data}")
-
-
-    if (call.data).split(":")[0] == "return":
-        menu_name = (call.data).split(":")[1]
-        menu_function = getattr(open_menu, menu_name)
-        text, keyboard = menu_function(call)
-        bot.edit_message_text(chat_id=user_id, message_id=menu_id, text=text, reply_markup=keyboard, parse_mode="MarkdownV2")
-
-    elif (call.data).split(":")[0] == "open_podcast":
-        podcast_id = (call.data).split(":")[1]
-        text, keyboard = open_menu.open_podcast(podcast_id)
-        bot.edit_message_text(chat_id=user_id, message_id=menu_id, text=text, reply_markup=keyboard, parse_mode="MarkdownV2")
-
-    elif (call.data).split(":")[0] == "delete":
-        podcast_id = (call.data).split(":")[1]
-        text = delete_podcast(podcast_id, user_id)
-        bot.answer_callback_query(call.id, text)
-        text, keyboard = open_menu.save(call)
-        bot.edit_message_text(chat_id=user_id, message_id=menu_id, text=text, reply_markup=keyboard, parse_mode="MarkdownV2")
-
-    else:
-        menu_function = getattr(open_menu, call.data)
-        text, keyboard = menu_function(call)
-        bot.edit_message_text(chat_id=user_id, message_id=menu_id, text=text, reply_markup=keyboard, parse_mode="MarkdownV2")
-
-
-
-@bot.message_handler(func=lambda message: True)
-def handle_text_message(message):
-    bot.delete_message(message.chat.id, message.message_id)
-    if message.text.startswith("https://podcast.ru/"):
-        user_id = message.chat.id
-        menu_id, text = save_podcast(message.text, user_id)
-        keyboard = open_menu.save_podcast()
-        bot.edit_message_text(chat_id=user_id, message_id=menu_id, text=text, reply_markup=keyboard, parse_mode="MarkdownV2")
-
-
-
-print(f"бот запущен...")
-def start_polling():
-    while True:
-        try:
-            bot.polling(none_stop=True, timeout=60)
-        except Exception as e:
-            print(f"Перезапуск...")
+URL = "https://podcast.ru"
 
 if __name__ == "__main__":
-    start_polling()
-    # bot.polling()
+    load_dotenv()
+    TOKEN = os.getenv("BOT_TOKEN")
+    DATABASE = os.getenv("DATABASE")
+    DEBUG = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
+    TelegramTextApp.start(TOKEN, "locale.json", DATABASE, debug=DEBUG)
+
+
+def add_column():
+    exists = SQL_request("SELECT 1 FROM pragma_table_info('TTA') WHERE name='podcasts'")
+    
+    if not exists:
+        SQL_request("ALTER TABLE TTA ADD COLUMN podcasts JSON")
+        print("Колонка 'podcasts' добавлена в таблицу TTA")
+    else:
+        print("Колонка 'podcasts' уже существует в таблице TTA")
+add_column()
+
+def save_podcast(tta_data):
+    try:
+        podcast_url = tta_data["podcast_url"]
+        podcast_id = podcast_url[len("https://podcast.ru/"):].strip()
+        
+        if not re.match(r'^\d+$', podcast_id):
+            return {"notification_text": "Неверный формат ID подкаста!"}
+        
+        try:
+            response = requests.get(podcast_url)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, 'html.parser')
+            title_tag = soup.find('h1')
+            if not title_tag:
+                return {"notification_text": "Заголовок подкаста не найден!"}
+            podcast_title = title_tag.get_text(strip=True)
+        except Exception as e:
+            return {"notification_text": f"Ошибка: {str(e)}"}
+        
+        current_data = SQL_request("SELECT podcasts FROM TTA WHERE telegram_id = ?", (tta_data["telegram_id"],))["podcasts"]
+        
+        podcasts_list = []
+        if current_data:
+            try:
+                podcasts_list = json.loads(current_data) if isinstance(current_data, str) else current_data
+            except json.JSONDecodeError:
+                pass
+
+        for podcast in podcasts_list:
+            if podcast["id"] == podcast_id:
+                return {"notification_text": f"Подкаст `{podcast_title}` уже сохранён!"}
+            
+        podcasts_list.append({
+            "id": podcast_id,
+            "title": podcast_title
+        })
+    
+        updated_data = json.dumps(podcasts_list, ensure_ascii=False)
+        SQL_request("UPDATE TTA SET podcasts = ? WHERE telegram_id = ?", (updated_data, tta_data["telegram_id"]))        
+        return {"notification_text": f"Подкаст `{podcast_title}` добавлен!"}
+    
+    except Exception as e:
+        return {"notification_text": f"Критическая ошибка: {str(e)}"}
+
+def my_podcasts(tta_data):
+    row_podcasts = SQL_request("SELECT podcasts FROM TTA WHERE telegram_id = ?", (tta_data["telegram_id"],))["podcasts"]
+    row_podcasts = json.loads(row_podcasts)
+    keyboard = {}
+    if not row_podcasts:
+        return keyboard
+    for podcast in row_podcasts:
+        keyboard[f"podcast|{podcast['id']}"] = podcast["title"]
+    return keyboard
+
+def podcast_data(tta_data):
+    try:
+        podcast_id = tta_data["podcast_id"]
+        response = requests.get(f"{URL}/{podcast_id}/info")
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        podcast_title = soup.find('h1').get_text(strip=True)
+        
+        podcast_author_tag = soup.find('a', string=True)
+        podcast_author = podcast_author_tag.get_text(strip=True) if podcast_author_tag else None
+        
+        podcast_image_tag = soup.find('img', class_='podcast-img')
+        podcast_image_url = podcast_image_tag['src'] if podcast_image_tag else None
+        
+        return {"title":podcast_title, "author":podcast_author, "image":podcast_image_url, "URL":URL}
+    except Exception as e:
+        print(e)
+
+def podcast_title(tta_data):
+    telegram_id = tta_data["telegram_id"]
+    podcast_id = tta_data["podcast_id"]
+
+    row_podcasts = SQL_request("SELECT podcasts FROM TTA WHERE telegram_id = ?", (telegram_id,))["podcasts"]
+    row_podcasts = json.loads(row_podcasts)
+
+    for podcast in row_podcasts:
+        if podcast["id"] == tta_data["podcast_id"]:
+            return {"title":podcast["title"]}
+
+def delete_podcast(tta_data):
+    telegram_id = tta_data["telegram_id"]
+    podcast_id = tta_data["podcast_id"]
+
+    row_podcasts = SQL_request("SELECT podcasts FROM TTA WHERE telegram_id = ?", (telegram_id,))["podcasts"]
+    row_podcasts = json.loads(row_podcasts)
+    
+    if row_podcasts:
+        updated_podcasts = [podcast for podcast in row_podcasts if podcast['id'] != podcast_id]
+        SQL_request("UPDATE TTA SET podcasts = ? WHERE telegram_id = ?", (json.dumps(updated_podcasts), telegram_id))
+
+    return podcast_title(tta_data)
