@@ -118,6 +118,8 @@ def delete_podcast(tta_data):
     telegram_id = tta_data["telegram_id"]
     podcast_id = tta_data["podcast_id"]
 
+    title = podcast_title(tta_data)
+
     row_podcasts = SQL_request("SELECT podcasts FROM TTA WHERE telegram_id = ?", (telegram_id,))["podcasts"]
     row_podcasts = json.loads(row_podcasts)
     
@@ -125,4 +127,4 @@ def delete_podcast(tta_data):
         updated_podcasts = [podcast for podcast in row_podcasts if podcast['id'] != podcast_id]
         SQL_request("UPDATE TTA SET podcasts = ? WHERE telegram_id = ?", (json.dumps(updated_podcasts), telegram_id))
 
-    return podcast_title(tta_data)
+    return {"title":title}
